@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: iso-8859-15 -*-
 
 import os
 import sys
@@ -21,9 +22,23 @@ def get_player_index(player):
         players.append(player)
     return players.index(player)
 
+comm = ""
+lastShow=""
 
-f = open(fn, "r")
-for line in f:
+if sys.argv[2] == 'csv':
+    top = 169
+elif len(sys.argv) > 2:
+    top = int(sys.argv[2])
+
+for line in reversed(list(open(fn, "r"))):
+    """
+    ~""Anand @ 5S52ALDt6Y"" collected 240 from pot with Pair, 9's (combination: 9♥, 9♠, K♠, J♥, 10♦)",2020-10-11T06:03:10.191Z,160239619019301
+    ~""Anand @ 5S52ALDt6Y"" shows a 9♥, 10♦.",2020-10-11T06:03:10.191Z,160239619019300
+
+    ~""Muru @ hEzAamWfh1"" collected 200 from pot",2020-10-18T00:44:02.652Z,160298184265301
+    ~""Uncalled bet of 100 returned to ""Muru @ hEzAamWfh1~"",2020-10-18T00:44:02.652Z,160298184265300
+    """
+
     if "collected" in line:
         player = line[3:line.find(' ')]
         search_str = "collected "
@@ -33,10 +48,11 @@ for line in f:
 
         ndx = get_player_index(player)
 
-        rank_index = -1
-        start = line.find("hand:")
+        rank_index = 999
+        search_str2 = "shows a "
+        start = lastShow.find(search_str2)
         if start > 0:
-            hand = line[start+6:line.find(")")]
+            hand = lastShow[start+ len(search_str2):lastShow.find(".")]
             comma = hand.find(",")
 
             card1  = hand[0:comma-3]
@@ -59,17 +75,23 @@ for line in f:
                     suited = 'o'
 
             myhand = card1+card2+suited
+
             if myhand in ranks:
                 rank_index = ranks.index(card1+card2+suited)+1  # +1 beacuse start index is 0
             else:
                 rank_index = ranks.index(card2+card1+suited)+1
 
-            if rank_index < 85:  # 169/2
+            if rank_index < top:
                 top_half[ndx] += 1
-            else:
+            elif rank_index > 169 - top and rank_index < 169:
                 bottom_half[ndx] += 1
 
-        mylist.append({"rank":rank_index, 'player':player, "pot":pot, "line":line })
+        else:
+            hand = "???"
+
+#        print "rank" + str(rank_index) + " lastShow=" + lastShow + " hand=" + hand + " river=" + comm+ "\t"  + line
+        mylist.append({"rank":rank_index, 'player':player, "pot":pot, "hand":hand, "river":comm, "line":line })
+        lastShow = ""
 
         #print player + " " + str(rank_index) + " " + str(pot)
         #sys.stdout.write  (("00" + str(rank_index))[-3:] + "\t" + line)
@@ -77,6 +99,19 @@ for line in f:
         #print "hand='" + hand +  "' card1='" + card1 + "' suite1='" + str(suite1) + "' card2='" + card2 + "' suite2='" + str(suite2) + "'"
         #for c in hand:  print str(c) + "\t" + str(ord(c))
 
+    # "River: 4♣, 6♣, A♥, 10♠ [9♥]",2021-01-03T01:34:20.230Z,160963766023600
+
+    if "Flop::" in line:
+        comm = line[7:line.find('",')]
+    elif "Turn:" in line:
+        comm = line[7:line.find('",')]
+    elif "River:" in line:
+        comm = line[8:line.find('",')]
+    elif "starting hand" in line:
+        comm = ""   # reset community card
+        lastShow = ""
+    elif "shows a " in line:
+        lastShow = line
 
 def byRank(e):
     return e['rank']
@@ -85,15 +120,18 @@ def byPot(e):
     return e['pot']
 
 if sys.argv[2] == 'csv':
-    sep = " && "
+    sep = " | "
     mylist.sort(key=byRank)
     for i in range(len(mylist)):
         e = mylist[i]
-        if e['rank'] > -1:
-            line = e['line']
-            hand = line[line.find("with") + 4 : line.find(")")+1]
-            ts = line[-16:-1]
-            print ( str(e['rank']) + sep + str(e['pot']) + sep + e['player'] + sep + hand + sep + ts)
+        #if e['rank'] > -1:
+        line = e['line']
+        if "with" in line:
+            win = line[line.find("with") + 4 : line.find("(")]
+        else:
+            win = "Uncalled"
+        ts = line[-16:-1]
+        print ( str(e['rank']) + sep + str(e['pot']) + sep + e['player'] + sep + e['hand'] + sep + win + sep + e['river'] +sep + ts)
 else:
     if len(sys.argv) > 2:
         top = int(sys.argv[2])
@@ -114,7 +152,6 @@ else:
     mylist.sort(key=byRank)
     print
     print "Top "+ str(top) +" Rank"
-    #for i in range(top):
     count = 0
     for i in range(len(mylist)):
         e = mylist[i]
@@ -130,11 +167,16 @@ else:
         mylist.sort(reverse=True, key=byRank)
         print
         print "Bottom "+ str(top) +" Rank"
-        for i in range(top):
-            e = mylist[i]
-            rank = ("00" + str(e['rank']))[-3:]
-            sys.stdout.write ("#" + rank + "  " + e['line'])
 
+        count = 0
+        for i in range(len(mylist)):
+            e = mylist[i]
+            if e['rank'] <= 169:
+                rank = ("00" + str(e['rank']))[-3:]
+                sys.stdout.write ("#" + rank + "  " + e['line'])
+                count += 1
+                if count > top:
+                    break
 
     for i in range(len(players)):
         sys.stdout.write("\t")
@@ -151,4 +193,4 @@ else:
         sys.stdout.write("\t" + str(bottom_half[i]))
     print
 
-f.close
+#f.close
