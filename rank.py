@@ -23,7 +23,7 @@ def get_player_index(player):
     return players.index(player)
 
 comm = ""
-lastShow=""
+aShow=[]
 
 if sys.argv[2] == 'csv':
     top = 169
@@ -50,6 +50,10 @@ for line in reversed(list(open(fn, "r"))):
 
         rank_index = 999
         search_str2 = "shows a "
+        lastShow=""
+        for show in aShow:
+            if player in show:
+                lastShow = show
         start = lastShow.find(search_str2)
         if start > 0:
             hand = lastShow[start+ len(search_str2):lastShow.find(".")]
@@ -91,7 +95,7 @@ for line in reversed(list(open(fn, "r"))):
 
 #        print "rank" + str(rank_index) + " lastShow=" + lastShow + " hand=" + hand + " river=" + comm+ "\t"  + line
         mylist.append({"rank":rank_index, 'player':player, "pot":pot, "hand":hand, "river":comm, "line":line })
-        lastShow = ""
+        aShow = []
 
         #print player + " " + str(rank_index) + " " + str(pot)
         #sys.stdout.write  (("00" + str(rank_index))[-3:] + "\t" + line)
@@ -109,9 +113,9 @@ for line in reversed(list(open(fn, "r"))):
         comm = line[8:line.find('",')]
     elif "starting hand" in line:
         comm = ""   # reset community card
-        lastShow = ""
+        aShow = []
     elif "shows a " in line:
-        lastShow = line
+        aShow.append(line)
 
 def byRank(e):
     return e['rank']
@@ -159,7 +163,7 @@ else:
             rank = ("00" + str(e['rank']))[-3:]
             sys.stdout.write ("#" + rank + "  " + e['line'])
             count += 1
-            if count > top:
+            if e['rank'] > top:
                 break
 
 
@@ -175,7 +179,7 @@ else:
                 rank = ("00" + str(e['rank']))[-3:]
                 sys.stdout.write ("#" + rank + "  " + e['line'])
                 count += 1
-                if count > top:
+                if e['rank'] < top:
                     break
 
     for i in range(len(players)):
