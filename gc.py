@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: iso-8859-15 -*-
 
 import os
@@ -83,6 +83,7 @@ for line in reversed(list(open(fn, "r"))):
                     if start > 0:
                         hand = line[start+ len(search_str2):line.find(".")]
 
-                    sys.stdout.write(player + "\t$" + str(e['amount']) + "\t " + e['blind'] + "\t" + hand + "\t#" + str(rank) + "\n")
+                    #sys.stdout.write(player + "\t$" + str(e['amount']) + "\t " + e['blind'] + "\t" + hand + "\t#" + str(rank) + "\n")
+                    sys.stdout.write(player + " | $" + str(e['amount']) + " |  " + e['blind'] + " | " + hand + " | " + str(rank) + "\n")
 
 

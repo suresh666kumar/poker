@@ -70,10 +70,11 @@ def is_connected(line):
 
 
 def get_hand_index2(hand):
-    if (len(hand) == 0):
-        return 0
-
+    rank_index = 0
     comma = hand.find(",")
+
+    if (len(hand) == 0) or comma == -1:
+        return rank_index
 
     card1  = hand[0:comma-1]
     suite1 = ord(hand[comma-1])
@@ -101,7 +102,8 @@ def get_hand_index2(hand):
     if myhand in ranks:
         rank_index = ranks.index(card1+card2+suited)+1  # +1 beacuse start index is 0
     else:
-        rank_index = ranks.index(card2+card1+suited)+1
+        if card2 != "0":
+            rank_index = ranks.index(card2+card1+suited)+1
     return rank_index
 
 def get_hand_index(line):

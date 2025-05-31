@@ -237,16 +237,28 @@ sys.stdout.write("               ")
 for i in range(len(players)):
     name=players[i] + "__";
     sys.stdout.write (name[0:4] + " ")
-    pct = int((pre_fold[i]) * 100 / total_hands[i])
+    if (total_hands[i] > 0):
+        pct = int((pre_fold[i]) * 100 / total_hands[i])
+    else:
+        pct = 0;
     pre_fold_pct.append( pct )
 
-    pct = int(pre_raise[i] * 100 / total_hands[i])
+    if (total_hands[i] > 0):
+        pct = int(pre_raise[i] * 100 / total_hands[i])
+    else:
+        pct = 0;
     pfr_pct.append( pct )
 
-    pct = int(vpip[i] * 100 / total_hands[i])
+    if (total_hands[i] > 0):
+        pct = int(vpip[i] * 100 / total_hands[i])
+    else:
+        pct = 0;
     vpip_pct.append( pct )
 
-    pct = int((total_hands[i] - pre_fold[i]) * 100 / total_hands[i])
+    if (total_hands[i] > 0):
+        pct = int((total_hands[i] - pre_fold[i]) * 100 / total_hands[i])
+    else:
+        pct = 0;
     total_pct.append( pct )
 
 

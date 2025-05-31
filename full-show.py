@@ -4,49 +4,93 @@
 import os
 import sys
 import time
+import json
 
-from mycommon import ranks, get_player_index, players, get_hand, get_hand_index, get_card1, get_card2, get_hand_index2
+from mycommon import ranks, get_player_index, players, get_hand, get_hand_index, get_card1, get_card2, get_hand_index2, get_ts
 
 fn = sys.argv[1]
 
+MAX_PLAYERS=10
 mylist = []
 comm = ""
-aShow=[9]
+aShow=[]
+aWhen=[]
+aPreBet=[]
 pot=0
 winner=""
 collectedWith=""
+ts=""
+state = 0
+states=['P', 'F', 'T', 'R', 'S', 'E']
 
-for i in range(9):
+for i in range(MAX_PLAYERS):
     aShow.append("")
+    aWhen.append("")
+    aPreBet.append(0)
 
+def init():
+    for i in range(0,MAX_PLAYERS-1):
+        aShow[i] = ""
+        aWhen[i] = ""
+        aPreBet[i] = 0
+
+def get_hand_details():
+    details=[]
+
+    for i in range(0,len(players)):
+        #print (players[i] + "hand=" + aShow[i] + " pre=" +  str(aPreBet[i]) + " when=" + aWhen[i] )
+        show = aShow[i]
+        if len(show) > 0:
+            rank = "00" + str(get_hand_index2(show))
+            detail = "#" + rank[-3:] + " " + show + "(" + str(aPreBet[i])+"/" +  aWhen[i] + ")"
+            #print "detail=" + detail
+        else:
+            detail = ""
+        details.append(detail)
+    return details
+
+init()
 for line in reversed(list(open(fn, "r"))):
+    #print line
     if "starting hand" in line:
         if pot > 0:
-            mylist.append({"board":comm, "with":collectedWith, 'winner':winner, "pot":pot, "hand":aShow })
+            details = get_hand_details()
+            mylist.append({"board":comm, "with":collectedWith, 'winner':winner, "pot":pot, "details":details, "ts":ts})
 
-        pot=0
-        winner=""
+        state = 0
+        pot = 0
+        winner = ""
         comm = ""   # reset community card
-        aShow=[]
-        for i in range(9):
-            aShow.append("")
+        collectedWith=""
+        init()
 
-    if "joined" in line:
+    elif "ending hand" in line:
+        state += 1
+    elif "joined" in line:
         #"The player ""Sun-ita @ nVTMSlOnCS"" joined the game with a stack of 1000.",2021-08-14T23:42:30.790Z,162898455079002
         player = line[line.find('""')+2:line.find('"" ')]
         player_index = get_player_index(player)
 
-    if "shows a " in line:
+    elif "shows a " in line:
         #"""DNegreanu @ st8V54HQHT"" shows a 2♣, 3♥.",2021-08-15T00:47:18.250Z,162898843825000
         player = line[line.find('"""')+3:line.find('"" ')]
 
         player_index = get_player_index(player)
         #rank = get_hand_index(line)
         hand = get_hand(line)
+
+        #print "index=" + str(player_index) + " hand=" + hand + " len=" + str(len(aShow))
         aShow[player_index] = hand
 
-        #print ("player="+player + " index="+ str(player_index) + " hand=" + hand)
-
+    if "Flop:" in line:
+        state += 1
+        comm = line[7:line.find('",')]
+    elif "Turn:" in line:
+        state += 1
+        comm = line[7:line.find('",')]
+    elif "River:" in line:
+        state += 1
+        comm = line[8:line.find('",')]
 
     #"""Solo @ RzCBjWQlAv"" collected 3402 from pot with Flush, Ad High (combination: A♦, K♦, 9♦, 8♦, 4♦)",2021-08-15T03:08:12.009Z,162899689200900
     if "collected" in line:
@@ -55,66 +99,56 @@ for line in reversed(list(open(fn, "r"))):
         start = line.find(search_str) + len(search_str);
         end   = line.find(" ", start+1)
         pot = int( line[start:end] )
+        ts = get_ts(line)
 
         if "with" in line:
             collectedWith = line[line.find("with")+5 : line.find("(")]
             #print ("collectedWith=" + collectedWith)
 
         ndx = get_player_index(player)
-
-        rank_index = 999
-        search_str2 = "shows a "
-        lastShow=""
-        #for show in aShow:
-        #    if players[ndx] in show:
-        #        lastShow = show
-        start = lastShow.find(search_str2)
-        if start > 0:
-            hand = lastShow[start+ len(search_str2):lastShow.find(".")]
-            comma = hand.find(",")
-
-            card1  = hand[0:comma-3]
-            suite1 = ord(hand[comma-1])
-
-            card2  = hand[comma+2:-3]
-            suite2 = ord(hand[len(hand)-1:len(hand)])
-
-            if card1 == "10":
-                card1 = "T";
-            if card2 == "10":
-                card2 = "T";
-
-            if card1 == card2:
-                suited = ''
-            else:
-                if (suite1 == suite2):
-                    suited = 's'
-                else:
-                    suited = 'o'
-
-            myhand = card1+card2+suited
-
-            if myhand in ranks:
-                rank_index = ranks.index(card1+card2+suited)+1  # +1 beacuse start index is 0
-            else:
-                rank_index = ranks.index(card2+card1+suited)+1
-
-        else:
-            hand = "???"
-
         winner = players[ndx]
 
-    if "Flop:" in line:
-        comm = line[7:line.find('",')]
-    elif "Turn:" in line:
-        comm = line[7:line.find('",')]
-    elif "River:" in line:
-        comm = line[8:line.find('",')]
-    #elif "shows a " in line:
-    #    aShow.append(line)
+    elif line.startswith('"""'):
 
+        player = line[line.find('"""')+3:line.find('"" ')]
+        player_index = get_player_index(player)
 
-sys.stdout.write ("Winner | Pot | With  | Board ")
+        if not "shows" in line:
+            aWhen[player_index] = states[state]
+
+        #"""Shan @ IoFp87uwrl"" raises to 840 and go all in",2021-08-22T00:03:06.084Z,162959058608400
+
+        #"""Solo @ P0EKPjReio"" checks",2021-03-14T07:08:33.354Z,161570571335500
+        #"""Anand @ 5S52ALDt6Y"" folds",2021-03-14T07:06:52.555Z,161570561255500
+        #"""Shan @ IoFp87uwrl"" raises to 200",2021-03-14T07:06:45.113Z,161570560511800
+        #"""Solo @ P0EKPjReio"" calls 20",2021-03-14T07:06:28.422Z,161570558842300
+        #"""ray @ 8-2EMBD5GQ"" posts a big blind of 20",2021-03-14T07:06:24.799Z,161570558480410
+        #"""Anand @ 5S52ALDt6Y"" posts a small blind of 10",2021-03-14T07:06:24.799Z,161570558480409
+
+        #"""Shan @ IoFp87uwrl"" bets 200",2021-08-22T07:10:48.380Z,162961624838000
+        if state == 0:
+            if "calls" in line:
+                start = line.find('calls')+6
+            elif "bets" in line:
+                start = line.find('bets')+5
+            elif "raises" in line:
+                start = line.find('raises')+10
+            elif "blind" in line:
+                start = line.find(' of')+4
+            else:
+                start = 0
+
+            if start:
+                if "go all in" in line:
+                    end = line.find(" and")-4
+                else:
+                    end = line.find('",')
+                bet = line[start:end]
+                aPreBet[player_index] = max(aPreBet[player_index] , bet)
+            else:
+                bet =  ""
+
+sys.stdout.write ("Timestamp | Winner | Pot | With  | Board ")
 for player in players:
     sys.stdout.write( " | " + player )
 sys.stdout.write("\n")
@@ -122,14 +156,22 @@ sys.stdout.write("\n")
 sep = " | "
 for i in range(len(mylist)):
     e = mylist[i]
-    sys.stdout.write (e["winner"] + sep +  str(e["pot"]) + sep + e["with"]+ sep + e["board"]  )
-    for show in e["hand"]:
-        if len(show) > 0:
-            rank = "00" + str(get_hand_index2(show))
-            sys.stdout.write( " | #" + rank[-3:] + " " + show )
+    sys.stdout.write (e["ts"] + sep + e["winner"] + sep +  str(e["pot"]) + sep + e["with"]+ sep + e["board"]  )
+    for detail in e["details"]:
+        if len(detail) > 0:
+            sys.stdout.write( sep + detail )
         else:
-            sys.stdout.write( " | ")
+            sys.stdout.write( sep )
     sys.stdout.write("\n")
 
+#print "players=" + str(len(players))
 
-    #print ( str(e['rank']) + sep + str(e['pot']) + sep + e['player'] + sep + e['hand'] + sep + win + sep + e['river'] +sep + ts)
+jsonString = json.dumps(mylist)
+jsonFile = open("data.json", "w")
+jsonFile.write(jsonString)
+jsonFile.close()
+
+
+
+#actions = ["calls", "raises"]
+#if any(x in line for x in actions):
